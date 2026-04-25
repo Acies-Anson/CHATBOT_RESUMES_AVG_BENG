@@ -68,6 +68,11 @@ Create `.env` in the project root and set:
 
 - `OPENROUTER_API_KEY`
 - `DB_URI`
+- Optional observability via LangSmith:
+  - `LANGSMITH_TRACING=true`
+  - `LANGSMITH_API_KEY=<your_langsmith_api_key>`
+  - Optional: `LANGSMITH_PROJECT=agent2`
+  - Optional: `LANGSMITH_ENDPOINT=https://api.smith.langchain.com`
 - Optional: `OPENROUTER_MODEL` for a single preferred model.
 - Optional: `OPENROUTER_MODELS` as a comma-separated fallback model list.
 
@@ -97,6 +102,7 @@ At startup, harness precheck prints:
 
 - `DB=Connected ...` (or failure reason)
 - `OpenRouter=Configured ...` (or missing key)
+- `LangSmith=Enabled ...` (or disabled / missing key)
 
 The harness runs Agent 1-like inputs and edge cases:
 
@@ -158,5 +164,15 @@ Then call:
 - Keep DB credentials in environment variables only
 - Rotate API keys regularly
 - Use `OPENROUTER_MODELS` to define approved fallback models per environment
+- Enable LangSmith in non-local environments for end-to-end traceability
 - Add schema-aware validation allowlists per environment for tighter security
 - Add unit/integration tests against a staging SQL Server before production rollout
+
+## LangSmith Monitoring Scope
+
+When `LANGSMITH_TRACING=true`, traces are captured for:
+
+- Agent entrypoint (`Agent2.run`)
+- Graph orchestration and each node (`validate`, `execute`, `summarize`)
+- SQL validation and SQL execution
+- OpenRouter summarization calls and fallback summary path

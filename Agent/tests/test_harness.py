@@ -51,6 +51,21 @@ def _openrouter_status() -> str:
     return f"OpenRouter=Configured models={models} key={key_signal}"
 
 
+def _langsmith_status() -> str:
+    enabled = (os.getenv("LANGSMITH_TRACING") or "").strip().lower() in {"1", "true", "yes", "on"}
+    if not enabled:
+        return "LangSmith=Disabled (set LANGSMITH_TRACING=true to enable)"
+
+    key = os.getenv("LANGSMITH_API_KEY")
+    key_signal = _masked_key_prefix(key)
+    if not key or not key.strip():
+        return "LangSmith=Blocked (missing LANGSMITH_API_KEY)"
+
+    project = os.getenv("LANGSMITH_PROJECT", "agent2")
+    endpoint = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+    return f"LangSmith=Enabled project={project} endpoint={endpoint} key={key_signal}"
+
+
 def run_harness() -> None:
     db_uri = os.getenv("DB_URI")
     if not db_uri:
@@ -61,6 +76,7 @@ def run_harness() -> None:
     print("-" * 80, flush=True)
     print(_db_status(db_uri), flush=True)
     print(_openrouter_status(), flush=True)
+    print(_langsmith_status(), flush=True)
 
     agent = Agent2()
 

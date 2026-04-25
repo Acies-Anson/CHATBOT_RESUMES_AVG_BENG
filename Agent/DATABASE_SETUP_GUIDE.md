@@ -80,6 +80,11 @@ Create `.env` in project root and set:
 ```env
 DB_URI=...
 OPENROUTER_API_KEY=...
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=...
+# Optional:
+# LANGSMITH_PROJECT=agent2
+# LANGSMITH_ENDPOINT=https://api.smith.langchain.com
 ```
 
 ## 5. DB_URI Formats
