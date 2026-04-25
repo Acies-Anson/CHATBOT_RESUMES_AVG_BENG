@@ -3,11 +3,13 @@ import logging
 import pandas as pd
 
 from llm.openrouter_summarizer import OpenRouterSummarizer
+from observability.langsmith import traceable
 
 
 LOGGER = logging.getLogger(__name__)
 
 
+@traceable(name="llm.deterministic_fallback", run_type="tool")
 def _deterministic_fallback(df: pd.DataFrame) -> str:
     if df.empty:
         return "No data returned."
@@ -31,6 +33,7 @@ def _deterministic_fallback(df: pd.DataFrame) -> str:
     )
 
 
+@traceable(name="llm.summarize", run_type="llm")
 def summarize(df: pd.DataFrame, question: str) -> str:
     try:
         return OpenRouterSummarizer().summarize(question, df)

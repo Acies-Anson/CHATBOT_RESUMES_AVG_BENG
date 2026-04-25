@@ -5,6 +5,7 @@ import requests
 import pandas as pd
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+from observability.langsmith import traceable
 
 load_dotenv()
 LOGGER = logging.getLogger(__name__)
@@ -45,6 +46,7 @@ class OpenRouterSummarizer:
         # Preserve order while removing duplicates/empties.
         self.models = list(dict.fromkeys([m for m in self.models if m]))
 
+    @traceable(name="llm.openrouter_call", run_type="llm")
     def _call_model(self, model: str, prompt: str) -> str:
         payload = {
             "model": model,
@@ -88,6 +90,7 @@ Return STRICT JSON:
 }}
 """
 
+    @traceable(name="llm.openrouter_summarize", run_type="chain")
     def summarize(self, question: str, df: pd.DataFrame) -> str:
         if df.empty:
             return "No rows returned."
