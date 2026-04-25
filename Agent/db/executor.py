@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
+from observability.langsmith import traceable
 
 load_dotenv()
 
@@ -29,6 +30,7 @@ class SQLExecutor:
         self.retries = max(1, retries)
         self.retry_delay_seconds = max(0.0, retry_delay_seconds)
 
+    @traceable(name="db.execute_sql", run_type="tool")
     def run(self, query: str) -> pd.DataFrame:
         if not query or not query.strip():
             raise ValueError("Query cannot be empty.")

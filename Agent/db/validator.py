@@ -2,6 +2,7 @@ import re
 from typing import Final
 
 import sqlglot
+from observability.langsmith import traceable
 
 
 class SQLValidationError(ValueError):
@@ -91,6 +92,7 @@ def _enforce_top_limit(sql: str, limit: int) -> str:
     return f"{sql[:insert_idx]} TOP {limit}{sql[insert_idx:]}"
 
 
+@traceable(name="db.validate_sql", run_type="tool")
 def validate_sql(query: str, default_top_limit: int = 100) -> str:
     if not query or not query.strip():
         raise SQLValidationError("SQL query cannot be empty.")
