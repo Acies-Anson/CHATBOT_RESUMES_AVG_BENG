@@ -10,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -17,6 +18,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from agents.agent import Agent2
 
 load_dotenv()
+print("\nTRACE DEBUG:")
+print("LANGCHAIN_TRACING_V2 =", os.getenv("LANGCHAIN_TRACING_V2"))
+print("LANGCHAIN_PROJECT =", os.getenv("LANGCHAIN_PROJECT"))
+print("LANGCHAIN_API_KEY =", "SET" if os.getenv("LANGCHAIN_API_KEY") else "MISSING")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 
 
@@ -52,19 +57,18 @@ def _openrouter_status() -> str:
 
 
 def _langsmith_status() -> str:
-    enabled = (os.getenv("LANGSMITH_TRACING") or "").strip().lower() in {"1", "true", "yes", "on"}
+    enabled = (os.getenv("LANGCHAIN_TRACING_V2") or "").strip().lower() in {"1", "true", "yes", "on"}
     if not enabled:
-        return "LangSmith=Disabled (set LANGSMITH_TRACING=true to enable)"
+        return "LangSmith=Disabled (set LANGCHAIN_TRACING_V2=true to enable)"
 
-    key = os.getenv("LANGSMITH_API_KEY")
+    key = os.getenv("LANGCHAIN_API_KEY")
     key_signal = _masked_key_prefix(key)
     if not key or not key.strip():
-        return "LangSmith=Blocked (missing LANGSMITH_API_KEY)"
+        return "LangSmith=Blocked (missing LANGCHAIN_API_KEY)"
 
-    project = os.getenv("LANGSMITH_PROJECT", "agent2")
-    endpoint = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+    project = os.getenv("LANGCHAIN_PROJECT", "agent2")
+    endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
     return f"LangSmith=Enabled project={project} endpoint={endpoint} key={key_signal}"
-
 
 def run_harness() -> None:
     db_uri = os.getenv("DB_URI")
