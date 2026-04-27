@@ -17,6 +17,10 @@ if str(PROJECT_ROOT) not in sys.path:
 from agents.agent import Agent2
 
 load_dotenv()
+print("\nTRACE DEBUG:")
+print("LANGCHAIN_TRACING_V2 =", os.getenv("LANGCHAIN_TRACING_V2"))
+print("LANGCHAIN_PROJECT =", os.getenv("LANGCHAIN_PROJECT"))
+print("LANGCHAIN_API_KEY =", "SET" if os.getenv("LANGCHAIN_API_KEY") else "MISSING")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 
 
@@ -65,7 +69,6 @@ def _langsmith_status() -> str:
     endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
     return f"LangSmith=Enabled project={project} endpoint={endpoint} key={key_signal}"
 
-
 def run_harness() -> None:
     db_uri = os.getenv("DB_URI")
     if not db_uri:
@@ -81,38 +84,53 @@ def run_harness() -> None:
     agent = Agent2()
 
     tests = [
-        {
-            "name": "Engineers by location",
-            "question": "How many engineers work in each location?",
-            "sql": "SELECT location, COUNT(*) AS engineer_count FROM dbo.Users WHERE occupation LIKE '%Engineer%' GROUP BY location ORDER BY engineer_count DESC",
-        },
-        {
-            "name": "Top 5 most experienced professionals",
-            "question": "Who are the 5 most experienced professionals?",
-            "sql": "SELECT TOP 5 name, occupation, experience, email FROM dbo.Users ORDER BY experience DESC",
-        },
-        {
-            "name": "Professionals by education",
-            "question": "How many professionals have each type of education?",
-            "sql": "SELECT education, COUNT(*) AS count FROM dbo.Users GROUP BY education ORDER BY count DESC",
-        },
-        {
-            "name": "Empty results edge case",
-            "question": "Are there any professionals with impossible experience level?",
-            "sql": "SELECT name, occupation FROM dbo.Users WHERE experience > 9999",
-        },
-        {
-            "name": "Null values edge case",
-            "question": "Show records with missing contact information.",
-            "sql": "SELECT name, occupation, email, phone_no FROM dbo.Users WHERE email IS NULL OR phone_no IS NULL",
-        },
-        {
-            "name": "Full Users table dump",
-            "question": "Show all professionals in the database.",
-            "sql": "SELECT name, occupation, location, experience, education, email FROM dbo.Users ORDER BY experience DESC",
-            "print_full_table": True,
-        },
-    ]
+    {
+        "name": "Users by location",
+        "question": "How many users are there in each location?",
+        "sql": "SELECT location, COUNT(*) AS total_users FROM Users GROUP BY location ORDER BY total_users DESC",
+    },
+    {
+        "name": "Top experienced users",
+        "question": "Who has the most experience?",
+        "sql": "SELECT TOP 5 name, occupation, experience FROM Users ORDER BY experience DESC",
+    },
+    {
+        "name": "Skills search",
+        "question": "Find users with Python skills",
+        "sql": "SELECT name, skills FROM Users WHERE skills LIKE '%Python%'",
+    },
+    {
+        "name": "Education distribution",
+        "question": "How many users per education level?",
+        "sql": "SELECT education, COUNT(*) AS count FROM Users GROUP BY education ORDER BY count DESC",
+    },
+    {
+        "name": "Null values edge case",
+        "question": "Show records with missing important fields",
+        "sql": "SELECT name, email, phone_no, location FROM Users WHERE name IS NULL OR email IS NULL OR phone_no IS NULL OR location IS NULL",
+    },
+    {
+        "name": "Malformed SQL edge case",
+        "question": "This should fail validation",
+        "sql": "SELEC name FORM Users",
+    },
+    {
+        "name": "Unsafe SQL edge case",
+        "question": "This should fail safety checks",
+        "sql": "DELETE FROM Users",
+    },
+    {
+        "name": "Large dataset edge case",
+        "question": "Test TOP protection",
+        "sql": "SELECT * FROM Users",
+    },
+    {
+        "name": "Full Users table dump",
+        "question": "Show all users",
+        "sql": "SELECT occupation, name, email, phone_no, location, skills, experience, education FROM Users",
+        "print_full_table": True,
+    },
+]
 
     for case in tests:
         print("\n" + "=" * 80, flush=True)

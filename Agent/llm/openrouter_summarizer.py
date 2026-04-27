@@ -11,13 +11,19 @@ load_dotenv()
 LOGGER = logging.getLogger(__name__)
 
 
+# -------------------------------
+# RESPONSE SCHEMA
+# -------------------------------
 class SummarySchema(BaseModel):
     direct_answer: str
-    key_trends: list[str] = Field(default_factory=list)
+    key_trends: list[str] = Field(default_factory=list)  # keeping name for compatibility
     anomalies: list[str] = Field(default_factory=list)
     concise_summary: str
 
 
+# -------------------------------
+# UTIL: CLEAN JSON RESPONSE
+# -------------------------------
 def _clean_json(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -25,6 +31,9 @@ def _clean_json(text: str) -> str:
     return text.strip()
 
 
+# -------------------------------
+# MAIN SUMMARIZER CLASS
+# -------------------------------
 class OpenRouterSummarizer:
     def __init__(self):
         self.api_key = os.getenv("OPENROUTER_API_KEY")
@@ -43,16 +52,16 @@ class OpenRouterSummarizer:
                 "mistralai/mistral-7b-instruct",
             ]
 
-        # Preserve order while removing duplicates/empties.
         self.models = list(dict.fromkeys([m for m in self.models if m]))
 
+    # -------------------------------
+    # CALL LLM
+    # -------------------------------
     @traceable(name="llm.openrouter_call", run_type="llm")
     def _call_model(self, model: str, prompt: str) -> str:
         payload = {
             "model": model,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+            "messages": [{"role": "user", "content": prompt}],
             "temperature": 0,
         }
 
@@ -68,20 +77,62 @@ class OpenRouterSummarizer:
 
         return res.json()["choices"][0]["message"]["content"]
 
+    # -------------------------------
+    # RESUME-FOCUSED PROMPT
+    # -------------------------------
     def _build_prompt(self, question: str, df: pd.DataFrame) -> str:
+        df = df.fillna("NULL")
+
         return f"""
-You are a senior data analyst.
+You are an expert HR analyst reviewing structured resume data.
 
-Question:
+Your task is to analyze candidate information and provide hiring insights.
+
+--------------------------------
+USER QUESTION:
 {question}
+--------------------------------
 
-Rows: {len(df)}
-Columns: {list(df.columns)}
+DATASET:
+- Total Candidates: {len(df)}
+- Fields: {list(df.columns)}
 
-Sample:
+SAMPLE DATA (first 10 rows):
 {json.dumps(df.head(10).to_dict(orient="records"), default=str)}
 
-Return STRICT JSON:
+--------------------------------
+ANALYSIS INSTRUCTIONS:
+
+1. DIRECT ANSWER:
+   - Clearly answer the question using the dataset.
+   - Mention candidate names, roles, experience, or skills where relevant.
+
+2. KEY INSIGHTS:
+   Focus on recruitment-related insights:
+   • Candidates with highest experience
+   • Strong technical skill sets
+   • Skill distribution (e.g., Python, ML, Web)
+   • Role distribution (Engineer, Analyst, etc.)
+   • Potentially suitable candidates for roles
+
+3. ANOMALIES / DATA ISSUES:
+   Identify:
+   • Missing values (NULL fields)
+   • Incomplete profiles (missing skills, experience, etc.)
+   • Inconsistent or unusual entries
+
+4. SUMMARY:
+   - Provide a short hiring-oriented summary (1–2 lines)
+
+--------------------------------
+STRICT RULES:
+- Use ONLY the provided dataset
+- Do NOT assume anything outside the data
+- Keep insights relevant to hiring/resume analysis
+- Be concise and factual
+
+--------------------------------
+OUTPUT FORMAT (STRICT JSON):
 {{
   "direct_answer": "...",
   "key_trends": ["..."],
@@ -90,38 +141,45 @@ Return STRICT JSON:
 }}
 """
 
-
+    # -------------------------------
+    # MAIN SUMMARIZE FUNCTION
+    # -------------------------------
+    @traceable(name="llm.openrouter_summarize", run_type="chain")
     def summarize(self, question: str, df: pd.DataFrame) -> str:
         if df.empty:
             return "No rows returned."
 
         prompt = self._build_prompt(question, df)
-        last_error: Exception | None = None
+
+        last_error = None
         content = ""
 
         for model in self.models:
             try:
                 content = self._call_model(model, prompt)
-                LOGGER.info("OpenRouter model used: %s", model)
+                LOGGER.info("Model used: %s", model)
                 break
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 last_error = exc
-                LOGGER.warning("OpenRouter model failed (%s): %s", model, exc)
+                LOGGER.warning("Model failed (%s): %s", model, exc)
                 continue
 
         if not content:
-            raise RuntimeError(f"All OpenRouter models failed. Last error: {last_error}")
+            raise RuntimeError(f"All models failed. Last error: {last_error}")
 
+        # -------------------------------
+        # PARSE RESPONSE
+        # -------------------------------
         try:
             parsed = SummarySchema.model_validate_json(_clean_json(content))
 
             return (
                 f"Direct answer: {parsed.direct_answer}\n"
-                f"Key trends: {', '.join(parsed.key_trends) or 'None'}\n"
+                f"Key insights: {', '.join(parsed.key_trends) or 'None'}\n"
                 f"Anomalies: {', '.join(parsed.anomalies) or 'None'}\n"
                 f"Summary: {parsed.concise_summary}"
             )
 
         except Exception:
-            # fallback to raw text if JSON parsing fails
+            LOGGER.warning("JSON parsing failed, returning raw output")
             return content.strip()
