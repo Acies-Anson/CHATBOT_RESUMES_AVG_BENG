@@ -1,160 +1,61 @@
-# from dotenv import load_dotenv
-# import os
-# import requests
-# import json
-# from langchain_openai import ChatOpenAI
+import os
+import json
+from pathlib import Path
+from dotenv import load_dotenv
+from agents.retrieval_summarizer_agent import RetrievalSummarizerAgent
 
-# # -------------------------
-# # LOAD ENV VARIABLES
-# # -------------------------
-# load_dotenv()
+env_path = Path(__file__).resolve().parent / "agents" / ".env"
+load_dotenv(env_path)
 
-# API_KEY = os.getenv("OPENROUTER_API_KEY")
-# MODEL = os.getenv("MODEL_NAME", "openai/gpt-4o-mini")
-
-# if not API_KEY:
-#     raise ValueError("❌ API key not found! Check your .env file")
-
-# # -------------------------
-# # OPTIONAL: RAW API CALL (DEBUG / TEST)
-# # -------------------------
-# def call_openrouter(prompt):
-#     response = requests.post(
-#         url="https://openrouter.ai/api/v1/chat/completions",
-#         headers={
-#             "Authorization": f"Bearer {API_KEY}",
-#             "Content-Type": "application/json",
-#         },
-#         data=json.dumps({
-#             "model": MODEL,
-#             "messages": [
-#                 {"role": "user", "content": prompt}
-#             ]
-#         })
-#     )
-
-#     result = response.json()
-
-#     if "choices" not in result:
-#         print("⚠️ API failed:", result)
-#         return None
-
-#     return result['choices'][0]['message']['content']
+def get_db_config():
+    return {
+        "host": os.getenv("NEON_HOST"),
+        "port": int(os.getenv("NEON_PORT", 5432)),
+        "dbname": os.getenv("NEON_DBNAME"),
+        "user": os.getenv("NEON_USER"),
+        "password": os.getenv("NEON_PASSWORD"),
+        "sslmode": "require",
+    }
 
 
-# # -------------------------
-# # LLM (LANGCHAIN)
-# # -------------------------
-# llm = ChatOpenAI(
-#     model=MODEL,
-#     temperature=0,
-#     openai_api_key=API_KEY,
-#     openai_api_base="https://openrouter.ai/api/v1"
-# )
-
-# # -------------------------
-# # SCHEMA
-# # -------------------------
-# schema = """
-# Table: cleaned_data
-
-# Columns:
-# - id (integer): auto-increment primary key
-# - name (varchar): full name of candidate
-# - email (varchar): email address
-# - phone_no (varchar): phone number
-# - location (varchar): current city
-# - skills (varchar): comma-separated skills like Python, SQL
-# - experience (varchar): experience details (e.g., '5 years', '3+ years')
-# - education (varchar): highest qualification
-# - occupation (varchar): current job role or profession
-# - other_details (varchar): additional information about the candidate
-# """
-
-# # -------------------------
-# # GENERATE SQL FUNCTION
-# # -------------------------
-# def generate_sql(question):
-#     prompt = f"""
-# You are an expert PostgreSQL query generator.
-
-# Database Schema:
-# {schema}
-
-# Rules:
-# - Only generate SQL query
-# - No explanation
-# - Use PostgreSQL syntax
-# - Use ILIKE for text search
-# - Only SELECT queries
-# - Do not hallucinate columns
-
-# User Question:
-# {question}
-
-# SQL Query:
-# """
-#     response = llm.invoke(prompt)
-#     return response.content.strip()
-
-# # -------------------------
-# # VALIDATION
-# # -------------------------
-# def validate_sql(sql):
-#     forbidden = ["DROP", "DELETE", "UPDATE", "INSERT"]
-#     for word in forbidden:
-#         if word in sql.upper():
-#             raise ValueError("❌ Unsafe query detected!")
-#     return sql
-
-# # -------------------------
-# # MAIN
-# # -------------------------
-# def main():
-#     print("✅ Agent 1 is ready! (type 'exit' to quit)")
-
-#     while True:
-#         user_input = input("\nAsk your question: ")
-
-#         if user_input.lower() == "exit":
-#             print("👋 Exiting...")
-#             break
-
-#         try:
-#             print("\n" + "=" * 50)
-#             print("🟡 USER QUESTION:")
-#             print(user_input)
-
-#             # Generate SQL using LLM
-#             sql = generate_sql(user_input)
-#             sql = validate_sql(sql)
-
-#             print("\n🟢 GENERATED SQL:")
-#             print(sql)
-
-#             # OPTIONAL: debug raw API call
-#             # debug_response = call_openrouter(user_input)
-#             # print("\n🔵 RAW API RESPONSE:")
-#             # print(debug_response)
-
-#             print("=" * 50)
-
-#         except Exception as e:
-#             print("❌ Error:", e)
+def _store_latest_result(payload: dict) -> str:
+    output_dir = Path(__file__).resolve().parent / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_file = output_dir / "latest_retrieval.json"
+    output_file.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
+    return str(output_file)
 
 
-# # -------------------------
-# # ENTRY POINT
-# # -------------------------
-# if __name__ == "__main__":
-#     main()
+def call_openrouter(prompt: str) -> dict:
+    """Main app entry: user prompt -> SQL retrieval -> summary + sql + rows payload."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        empty_payload = {
+            "query": "",
+            "sql": "N/A",
+            "summary": "Please enter a query.",
+            "results": [],
+        }
+        empty_payload["stored_at"] = _store_latest_result(empty_payload)
+        return empty_payload
 
-from agents.sql_agent import generate_sql, validate_sql
-
-def call_openrouter(prompt):
     try:
-        sql = generate_sql(prompt)
-        sql = validate_sql(sql)
-        return sql
+        agent = RetrievalSummarizerAgent(get_db_config())
+        result = agent.handle(prompt)
+        payload = result if isinstance(result, dict) else {
+            "query": prompt,
+            "sql": "N/A",
+            "summary": str(result),
+            "results": [],
+        }
+        payload["stored_at"] = _store_latest_result(payload)
+        return payload
     except Exception as e:
-        return f"Error: {str(e)}"
+        error_payload = {
+            "query": prompt,
+            "sql": "FAILED",
+            "summary": f"Error: {str(e)}",
+            "results": [],
+        }
+        error_payload["stored_at"] = _store_latest_result(error_payload)
+        return error_payload
