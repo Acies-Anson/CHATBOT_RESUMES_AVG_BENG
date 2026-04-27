@@ -116,7 +116,28 @@ class RetrievalSummarizerAgent:
 
         total = results[0].get("total_count", len(results)) if results else 0
 
-        # Aggregate top locations and skills
+        # Detect grouped/count-style results (e.g., COUNT(*) GROUP BY field)
+        # If rows look like {'location': 'X', 'count': 10} or similar, format accordingly.
+        first_row = results[0]
+        numeric_keys = [k for k, v in first_row.items() if isinstance(v, (int, float))]
+        non_numeric_keys = [k for k in first_row.keys() if k not in numeric_keys]
+
+        if numeric_keys and non_numeric_keys:
+            # Use the first non-numeric key as the group column, first numeric as count
+            group_col = non_numeric_keys[0]
+            count_col = numeric_keys[0]
+
+            groups = []
+            for row in results[:10]:
+                groups.append(f"{row.get(group_col)} ({row.get(count_col)})")
+
+            total_groups = len(results)
+            return (
+                f"Found {total_groups} groups for '{group_col}'. "
+                f"Top groups: {', '.join(groups)}."
+            )
+
+        # Aggregate top locations and skills for regular result sets
         location_count = {}
         skill_count = {}
         for row in results:
@@ -136,7 +157,7 @@ class RetrievalSummarizerAgent:
         # Example names for context
         example_names = [row.get("name") or "Unknown" for row in results[:3]]
 
-        # Special case: if user asked about email, keep behavior but phrase it
+        # Special case: if user asked about email, phrase it
         if "email" in (user_query or "").lower():
             return (
                 f"Found {total} candidates related to email in the dataset. "
