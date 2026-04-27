@@ -35,6 +35,7 @@ for chat in st.session_state.chat_history:
 
     answer = chat["answer"]
     if isinstance(answer, dict):
+        st.markdown(f"**Query:** {answer.get('query', chat['question'])}")
         st.markdown("**Assistant Summary:**")
         st.write(answer.get("summary", "No summary available."))
 
