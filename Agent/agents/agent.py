@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import pandas as pd
@@ -19,8 +20,10 @@ class Agent2:
         if not question or not question.strip():
             raise ValueError("question is required")
 
+        project_name = (os.getenv("LANGCHAIN_PROJECT") or "agent2").strip() or "agent2"
+
         with tracing_scope(
-            project_name="agent2",
+            project_name=project_name,
             tags=["agent2", "pipeline"],
             metadata={"question_length": len(question), "sql_length": len(sql)},
         ):
