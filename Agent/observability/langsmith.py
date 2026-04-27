@@ -4,28 +4,30 @@ import os
 from contextlib import contextmanager
 from typing import Any, Callable
 
+try:
+    from langsmith import Client, traceable as _traceable
+    from langsmith.run_helpers import tracing_context as _tracing_context
+
+    _client = Client()  # IMPORTANT: ensures traces are sent
+except Exception:
+    _traceable = None
+    _tracing_context = None
+    _client = None
+
 
 def _to_bool(value: str | None) -> bool:
     return (value or "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def is_tracing_enabled() -> bool:
-    return _to_bool(os.getenv("LANGSMITH_TRACING"))
-
-
-try:
-    from langsmith import traceable as _traceable
-    from langsmith.run_helpers import tracing_context as _tracing_context
-except Exception:  # noqa: BLE001
-    _traceable = None
-    _tracing_context = None
+    return _to_bool(os.getenv("LANGCHAIN_TRACING_V2"))
 
 
 def traceable(*args, **kwargs) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     if _traceable is None:
-        def _noop_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        def _noop(func: Callable[..., Any]) -> Callable[..., Any]:
             return func
-        return _noop_decorator
+        return _noop
     return _traceable(*args, **kwargs)
 
 
