@@ -49,17 +49,17 @@ Note: In this workspace, these folders already exist at the repository root.
 
 1. Create and activate a virtual environment.
 
-Windows PowerShell:
+Windows:
 
-```powershell
+```cmd
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\activate
 ```
 
 2. Install dependencies.
 
-```powershell
-pip install -r requirements.txt
+```cmd
+python -m pip install -r requirements.txt
 ```
 
 3. Configure environment variables.
@@ -94,8 +94,8 @@ For LocalDB/named-instance examples, use `DATABASE_SETUP_GUIDE.md`.
 
 ## Run Test Harness
 
-```powershell
-.\.venv\Scripts\python.exe tests\test_harness.py
+```cmd
+python test_harness.py
 ```
 
 At startup, harness precheck prints:
