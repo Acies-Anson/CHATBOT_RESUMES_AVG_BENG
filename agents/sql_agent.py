@@ -33,28 +33,18 @@ Schema:
 {schema}
 
 Rules:
-- Return a single valid PostgreSQL SELECT query only.
-- Do not include explanations or markdown.
-- Prefer explicit columns (avoid SELECT *).
-- Use ILIKE '%keyword%' for text filters.
-- Combine multiple skills with AND.
-- Include a location filter if the user specifies location.
-- For "top" or "best" requests, ORDER BY experience DESC.
-- For counts, use COUNT(*) and GROUP BY as needed.
-- Do not include LIMIT; the caller will add it.
+- Return only a valid PostgreSQL SELECT query.
+- No markdown, no explanations, no text before or after the query.
+- Use ILIKE '%keyword%' for text search.
+- For aggregates or counts, use COUNT(), COUNT(DISTINCT), or SUM() as appropriate.
+- For GROUP BY queries, include the group column and an aggregate.
+- Do not include LIMIT; the system will handle pagination.
 
 User question:
 {question}
 
 SQL Query:
 """
-
-# Example (count by location):
-# Question: Count candidates by location
-# SQL: SELECT location AS group_field, COUNT(*) AS count
-#      FROM cleaned_data
-#      GROUP BY location
-#      ORDER BY count DESC
 
 def generate_sql(question: str) -> str:
     if not api_key:
