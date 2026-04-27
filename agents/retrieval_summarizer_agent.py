@@ -73,7 +73,7 @@ class RetrievalSummarizerAgent:
             "results": results
         }
 
-    def _summarize(self, results):
+    def _summarize(self, results: List[Dict[str, Any]]) -> str:
         if not results:
             return "No matching candidates found."
 
@@ -92,7 +92,7 @@ class RetrievalSummarizerAgent:
         # Top locations
         location_count = {}
         for row in results:
-            loc = (row.get("location") or "Unknown").strip()
+            loc = (row.get("location") or "Unknown").strip() or "Unknown"
             location_count[loc] = location_count.get(loc, 0) + 1
 
         top_locations = sorted(location_count.items(), key=lambda x: x[1], reverse=True)[:3]
