@@ -23,6 +23,14 @@ VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
 
 
 def iter_csv_rows(path):
+    def _to_bool(value):
+        text = str(value).strip().lower()
+        if text in {"true", "1", "yes", "y"}:
+            return True
+        if text in {"false", "0", "no", "n"}:
+            return False
+        return None
+
     with open(path, newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -37,8 +45,8 @@ def iter_csv_rows(path):
                 row.get('experience'),
                 row.get('education'),
                 row.get('other_details'),
-                row.get('email_valid'),
-                row.get('phone_valid'),
+                _to_bool(row.get('email_valid')),
+                _to_bool(row.get('phone_valid')),
             )
 
 
