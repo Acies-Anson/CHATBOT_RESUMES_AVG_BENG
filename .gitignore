@@ -5,5 +5,15 @@
 __pycache__/
 *.pyc
 
-# Virtual environment (if you use one)
+# Python-generated files
+*.pyo
+*.pyd
+*.py,cover
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
 venv/
+.venv/
