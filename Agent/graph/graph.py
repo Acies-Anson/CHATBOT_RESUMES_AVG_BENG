@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 
 from db.executor import SQLExecutor
+from db.validator import validate_dataframe, validate_summary
 from llm.summarizer import summarize
 from observability.langsmith import traceable
 
@@ -40,6 +41,10 @@ def execute_node(state: State) -> dict:
 @traceable(name="graph.execute_sql", run_type="tool")
 def _execute_node_impl(state: State) -> dict:
     dataframe = _get_executor().run(state["sql"])
+    
+    # Validate result quality
+    validate_dataframe(dataframe)
+    
     LOGGER.info("Query execution complete. Rows returned: %s", len(dataframe))
     return {"dataframe": dataframe}
 
@@ -52,6 +57,10 @@ def summarize_node(state: State) -> dict:
 @traceable(name="graph.summarize", run_type="tool")
 def _summarize_node_impl(state: State) -> dict:
     summary = summarize(state["dataframe"], state["question"])
+    
+    # Validate summary was generated
+    validate_summary(summary)
+    
     return {"summary": summary}
 
 
