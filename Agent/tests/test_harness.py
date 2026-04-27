@@ -10,7 +10,6 @@ from pathlib import Path
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -18,10 +17,6 @@ if str(PROJECT_ROOT) not in sys.path:
 from agents.agent import Agent2
 
 load_dotenv()
-print("\nTRACE DEBUG:")
-print("LANGCHAIN_TRACING_V2 =", os.getenv("LANGCHAIN_TRACING_V2"))
-print("LANGCHAIN_PROJECT =", os.getenv("LANGCHAIN_PROJECT"))
-print("LANGCHAIN_API_KEY =", "SET" if os.getenv("LANGCHAIN_API_KEY") else "MISSING")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 
 
@@ -70,6 +65,7 @@ def _langsmith_status() -> str:
     endpoint = os.getenv("LANGCHAIN_ENDPOINT", "https://api.smith.langchain.com")
     return f"LangSmith=Enabled project={project} endpoint={endpoint} key={key_signal}"
 
+
 def run_harness() -> None:
     db_uri = os.getenv("DB_URI")
     if not db_uri:
@@ -86,49 +82,34 @@ def run_harness() -> None:
 
     tests = [
         {
-            "name": "Total revenue by region",
-            "question": "What is total revenue by region?",
-            "sql": "SELECT region, SUM(price * quantity) AS revenue FROM Orders GROUP BY region ORDER BY revenue DESC",
+            "name": "Engineers by location",
+            "question": "How many engineers work in each location?",
+            "sql": "SELECT location, COUNT(*) AS engineer_count FROM dbo.Users WHERE occupation LIKE '%Engineer%' GROUP BY location ORDER BY engineer_count DESC",
         },
         {
-            "name": "Top 5 products",
-            "question": "Which 5 products sold the most units?",
-            "sql": "SELECT TOP 5 product, SUM(quantity) AS total_units FROM Orders GROUP BY product ORDER BY total_units DESC",
+            "name": "Top 5 most experienced professionals",
+            "question": "Who are the 5 most experienced professionals?",
+            "sql": "SELECT TOP 5 name, occupation, experience, email FROM dbo.Users ORDER BY experience DESC",
         },
         {
-            "name": "Customer spending",
-            "question": "Which customers spend the most?",
-            "sql": "SELECT customer_id, SUM(price * quantity) AS lifetime_spend FROM Orders GROUP BY customer_id ORDER BY lifetime_spend DESC",
+            "name": "Professionals by education",
+            "question": "How many professionals have each type of education?",
+            "sql": "SELECT education, COUNT(*) AS count FROM dbo.Users GROUP BY education ORDER BY count DESC",
         },
         {
             "name": "Empty results edge case",
-            "question": "Any orders for impossible product id?",
-            "sql": "SELECT order_id, product FROM Orders WHERE product = '__definitely_missing__'",
+            "question": "Are there any professionals with impossible experience level?",
+            "sql": "SELECT name, occupation FROM dbo.Users WHERE experience > 9999",
         },
         {
             "name": "Null values edge case",
-            "question": "Show records that contain nulls in critical fields.",
-            "sql": "SELECT customer_id, region, price, quantity FROM Orders WHERE customer_id IS NULL OR region IS NULL OR price IS NULL OR quantity IS NULL",
+            "question": "Show records with missing contact information.",
+            "sql": "SELECT name, occupation, email, phone_no FROM dbo.Users WHERE email IS NULL OR phone_no IS NULL",
         },
         {
-            "name": "Malformed SQL edge case",
-            "question": "This should fail validation.",
-            "sql": "SELEC customer_id FORM Orders",
-        },
-        {
-            "name": "Unsafe SQL edge case",
-            "question": "This should fail safety checks.",
-            "sql": "DELETE FROM Orders",
-        },
-        {
-            "name": "Large dataset edge case",
-            "question": "Validate automatic TOP 100 protection.",
-            "sql": "SELECT * FROM Orders",
-        },
-        {
-            "name": "Full Orders table dump",
-            "question": "Show all rows in Orders so we can verify local DB connectivity.",
-            "sql": "SELECT order_id, order_date, customer_id, region, product, price, quantity FROM Orders ORDER BY order_id",
+            "name": "Full Users table dump",
+            "question": "Show all professionals in the database.",
+            "sql": "SELECT name, occupation, location, experience, education, email FROM dbo.Users ORDER BY experience DESC",
             "print_full_table": True,
         },
     ]

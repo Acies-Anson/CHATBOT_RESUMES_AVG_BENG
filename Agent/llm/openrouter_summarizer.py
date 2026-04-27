@@ -90,7 +90,7 @@ Return STRICT JSON:
 }}
 """
 
-    @traceable(name="llm.openrouter_summarize", run_type="chain")
+
     def summarize(self, question: str, df: pd.DataFrame) -> str:
         if df.empty:
             return "No rows returned."
