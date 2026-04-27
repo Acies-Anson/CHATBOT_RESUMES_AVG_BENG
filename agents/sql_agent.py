@@ -1,7 +1,6 @@
 import os
 import json
 from urllib.request import Request, urlopen
-from urllib.error import HTTPError, URLError
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,16 +32,17 @@ You are an expert PostgreSQL query generator for resume search.
 Database Schema:
 {schema}
 
-Rules:
-- Return only one valid PostgreSQL SELECT query.
-- Do not wrap the query in markdown or code fences.
-- Do not explain your answer.
-- Use only columns that exist in the schema.
-- Use ILIKE for text filtering on name, skills, location, education, and occupation.
-- Use = TRUE / FALSE for boolean fields.
-- Use COUNT(*) and GROUP BY for count or breakdown questions.
-- Use ORDER BY for ranking or top result questions.
-- Do not include LIMIT; the retriever adds it.
+STRICT RULES:
+- Return ONLY one PostgreSQL SELECT query.
+- No markdown, no explanations.
+- NEVER use SELECT * unless necessary.
+- ALWAYS filter based on user intent.
+- Use ILIKE with %keyword%.
+- If multiple skills → use AND.
+- If location present → MUST filter.
+- If "top/best" → ORDER BY experience DESC.
+- If "count" → use COUNT(*).
+- DO NOT include LIMIT.
 
 User Question:
 {question}
@@ -50,11 +50,14 @@ User Question:
 SQL Query:
 """
 
-def generate_sql(question):
-    prompt = sql_prompt_template.format(schema=schema.strip(), question=question.strip())
-
+def generate_sql(question: str) -> str:
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY not set")
+
+    prompt = sql_prompt_template.format(
+        schema=schema.strip(),
+        question=question.strip()
+    )
 
     payload = {
         "model": model_name,
@@ -72,17 +75,14 @@ def generate_sql(question):
         method="POST",
     )
 
-    try:
-        with urlopen(request, timeout=30) as response:
-            body = response.read().decode("utf-8")
-            result = json.loads(body)
-            return result["choices"][0]["message"]["content"].strip()
+    with urlopen(request, timeout=30) as response:
+        body = response.read().decode("utf-8")
+        result = json.loads(body)
 
-    except Exception as exc:
-        raise RuntimeError(f"SQL generation failed: {exc}") from exc
+    return result["choices"][0]["message"]["content"].strip()
 
 
-def validate_sql(sql):
+def validate_sql(sql: str) -> str:
     forbidden = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE"]
     for word in forbidden:
         if word in sql.upper():
