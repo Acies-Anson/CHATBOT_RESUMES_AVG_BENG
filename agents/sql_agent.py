@@ -83,7 +83,7 @@ def generate_sql(question):
 
 
 def validate_sql(sql):
-    forbidden = ["DROP", "DELETE", "UPDATE", "INSERT"]
+    forbidden = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "TRUNCATE"]
     for word in forbidden:
         if word in sql.upper():
             raise ValueError("Unsafe query detected")
