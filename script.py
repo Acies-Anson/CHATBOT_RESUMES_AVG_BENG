@@ -28,6 +28,17 @@ def _store_latest_result(payload: dict) -> str:
 
 def call_openrouter(prompt: str) -> dict:
     """Main app entry: user prompt -> SQL retrieval -> summary + sql + rows payload."""
+    prompt = (prompt or "").strip()
+    if not prompt:
+        empty_payload = {
+            "query": "",
+            "sql": "N/A",
+            "summary": "Please enter a query.",
+            "results": [],
+        }
+        empty_payload["stored_at"] = _store_latest_result(empty_payload)
+        return empty_payload
+
     try:
         agent = RetrievalSummarizerAgent(get_db_config())
         result = agent.handle(prompt)
