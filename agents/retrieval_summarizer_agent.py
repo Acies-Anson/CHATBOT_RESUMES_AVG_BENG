@@ -7,11 +7,11 @@ from agents.sql_agent import generate_sql, validate_sql
 
 class RetrievalSummarizerAgent:
 
-    def __init__(self, db_config: Dict[str, Any]):
+    def __init__(self, db_config: str):
         self.db_config = db_config
 
     def connect(self):
-        return psycopg2.connect(**self.db_config)
+        return psycopg2.connect(self.db_config)
 
     # Clean SQL properly
     def _clean_sql(self, sql: str) -> str:
