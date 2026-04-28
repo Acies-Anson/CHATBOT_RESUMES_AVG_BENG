@@ -4,18 +4,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from agents.retrieval_summarizer_agent import RetrievalSummarizerAgent
 
-env_path = Path(__file__).resolve().parent / "agents" / ".env"
+env_path = Path(__file__).resolve().parent / ".env"
 load_dotenv(env_path)
 
 def get_db_config():
-    return {
-        "host": os.getenv("NEON_HOST"),
-        "port": int(os.getenv("NEON_PORT", 5432)),
-        "dbname": os.getenv("NEON_DBNAME"),
-        "user": os.getenv("NEON_USER"),
-        "password": os.getenv("NEON_PASSWORD"),
-        "sslmode": "require",
-    }
+    return os.getenv("NEON_URL")
 
 
 def _store_latest_result(payload: dict) -> str:
