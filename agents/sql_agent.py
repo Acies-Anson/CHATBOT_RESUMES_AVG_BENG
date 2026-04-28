@@ -1,12 +1,17 @@
 import os
 import json
-from urllib.request import Request, urlopen
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
 api_key = os.getenv("OPENROUTER_API_KEY")
 model_name = os.getenv("MODEL_NAME", "openai/gpt-4o-mini")
+
+# LangSmith setup
+os.environ["LANGCHAIN_TRACING_V2"] = os.getenv("LANGCHAIN_TRACING_V2", "true")
+os.environ["LANGCHAIN_API_KEY"] = os.getenv("LANGCHAIN_API_KEY", "")
+os.environ["LANGCHAIN_PROJECT"] = os.getenv("LANGCHAIN_PROJECT", "resume_chatbot")
 
 schema = """
 Table: cleaned_data
@@ -50,32 +55,20 @@ def generate_sql(question: str) -> str:
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY not set")
 
+    llm = ChatOpenAI(
+        openai_api_key=api_key,
+        openai_api_base="https://openrouter.ai/api/v1",
+        model=model_name,
+        temperature=0
+    )
+
     prompt = sql_prompt_template.format(
         schema=schema.strip(),
         question=question.strip()
     )
 
-    payload = {
-        "model": model_name,
-        "temperature": 0,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-
-    request = Request(
-        "https://openrouter.ai/api/v1/chat/completions",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
-    with urlopen(request, timeout=30) as response:
-        body = response.read().decode("utf-8")
-        result = json.loads(body)
-
-    return result["choices"][0]["message"]["content"].strip()
+    response = llm.invoke(prompt)
+    return response.content.strip()
 
 
 def validate_sql(sql: str) -> str:
